@@ -1,0 +1,57 @@
+name: Automate EKS Security Hardening
+
+on:
+  push:
+    branches:
+      - main  # Run the pipeline on main branch updates
+
+jobs:
+  setup_eks:
+    runs-on: ubuntu-latest
+    steps:
+    
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ap-south-1 # Change this to your AWS region
+
+    - name: Install EKS CLI Tools
+      run: |
+        curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+        sudo mv /tmp/eksctl /usr/local/bin
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        chmod +x kubectl
+        sudo mv kubectl /usr/local/bin
+
+    - name: Create EKS Cluster
+      run: |
+        eksctl create cluster --name my-secure-cluster --region ap-south-1 --nodegroup-name workers --node-type t3.medium --nodes 2
+        kubectl get nodes
+
+    - name: Apply Kubernetes Hardening Script
+      run: |
+        chmod +x k8s_hardening.sh
+        ./k8s_hardening.sh
+
+    - name: Run Security Checks (kube-bench)
+      run: |
+        kubectl apply -f https://raw.githubusercontent.com/aquasecurity/kube-bench/main/job.yaml
+        sleep 10  # Wait for kube-bench to execute
+        kubectl logs -f kube-bench
+
+    - name: Upload Security Report
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: kube-bench-report
+        path: kube-bench.log
+
+    - name: Destroy EKS Cluster (if needed)
+      if: always()
+      run: |
+        eksctl delete cluster --name my-secure-cluster --region ap-south-1
