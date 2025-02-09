@@ -30,13 +30,13 @@ jobs:
 
     - name: 🚀 Create EKS Cluster
       run: |
-        eksctl create cluster --name my-secure-cluster --region us-east-1 --nodegroup-name workers --node-type t3.medium --nodes 2
+        eksctl create cluster --name my-secure-cluster --region ap-south-1 --nodegroup-name workers --node-type t3.medium --nodes 2
         kubectl get nodes
 
     - name: 🔒 Apply Kubernetes Hardening Script
       run: |
-        chmod +x k8s_hardening.sh
-        ./k8s_hardening.sh
+        chmod +x k8s_harddening.sh
+        ./k8s_harddening.sh
 
     - name: 🔍 Run Security Checks (kube-bench)
       run: |
@@ -54,4 +54,4 @@ jobs:
     - name: 🛑 Destroy EKS Cluster (if needed)
       if: always()
       run: |
-        eksctl delete cluster --name my-secure-cluster --region us-east-1
+        eksctl delete cluster --name my-secure-cluster --region ap-south-1
